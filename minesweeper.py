@@ -105,13 +105,13 @@ class Sentence():
         """
         Returns the set of all cells in self.cells known to be mines.
         """
-        raise NotImplementedError
+        return {cel for cel in self.cells if len(self.cells)==self.count}
 
     def known_safes(self):
         """
         Returns the set of all cells in self.cells known to be safe.
         """
-        raise NotImplementedError
+        return {cel for cel in self.cells if self.count==0}
 
     def mark_mine(self, cell):
         """
@@ -149,6 +149,9 @@ class MinesweeperAI():
         # List of sentences about the game known to be true
         self.knowledge = []
 
+        # Neighbor's dictionary
+        self.neighbors_dict={}
+
     def mark_mine(self, cell):
         """
         Marks a cell as a mine, and updates all knowledge
@@ -167,6 +170,24 @@ class MinesweeperAI():
         for sentence in self.knowledge:
             sentence.mark_safe(cell)
 
+    def neighboring_cells(self, cell):
+        """
+        takes a cell and returns all neighboring cells
+        updates a dictionary not to run the for loop every time.
+        """
+        try: #if cell already processed for neighbors
+            return self.neighbors_dict[cell]
+        except: #if first time cell is being consulted
+            neighbors=set()
+            for i in range (cell[0]-1, cell[0]+2, 2):
+                for j in range (cell[1]-1, cell[1]+2, 2):
+                    if 0<=i<self.height and 0<=j<self.width:
+                        neighbors.add(i,j)
+            self.neighbors_dict[cell]=neighbors
+        return neighbors
+
+
+
     def add_knowledge(self, cell, count):
         """
         Called when the Minesweeper board tells us, for a given
@@ -182,7 +203,22 @@ class MinesweeperAI():
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
         """
-        raise NotImplementedError
+        self.moves_made.add(cell)
+        self.safes.add(cell)
+        self.knowledge.append(Sentence(cell, count))
+        neighbors=self.neighboring_cells(cell)
+        if count==0:
+            for c in neighbors:
+                self.mark_safe(cell)
+        elif count==len(neighbors):
+            for c in neighbors:
+                self.mark_mine(cell)
+
+
+
+
+
+
 
     def make_safe_move(self):
         """

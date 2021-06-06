@@ -124,12 +124,12 @@ class Sentence():
         se a celula é uma mina, ao tirar aquela cell do cells, o count cai 1
         alem disto, pode criar uma outra sentenca com cell unica, e count 1
         """	
-        try:
-        	self.cells.remove(cell)
-        	self.count=-1
-        except:
-        	raise NotValidCellError
-        	
+        if cell in self.cells:
+            self.cells.remove(cell)
+            self.count=-1
+
+
+
 
     def mark_safe(self, cell):
         """
@@ -138,10 +138,10 @@ class Sentence():
         se a celula é safe, pode tirar a celula do cells e nao mudar o count
         pode criar outra sentenca com celula unica e count=0
         """
-        try:
-        	self.cells.remove(cell)
-        except:
-        	raise NotValidCellError
+        if cell in self.cells:
+            self.cells.remove(cell)
+
+
 
 
 class MinesweeperAI():
@@ -200,7 +200,7 @@ class MinesweeperAI():
             for i in range (cell[0]-1, cell[0]+2, 2):
                 for j in range (cell[1]-1, cell[1]+2, 2):
                     if 0<=i<self.height and 0<=j<self.width:
-                        neighbors.add(i,j)
+                        neighbors.add((i,j))
             self.neighbors_dict[cell]=neighbors
         return neighbors
 
@@ -214,11 +214,11 @@ class MinesweeperAI():
             safes_copy=self.safes.copy()
      
             for sentence in self.knowledge:       
-                self.mines.add(sentence.known_mines())			
+                self.mines.add(sentence.known_mines())
                 self.safes.add(sentence.known_safes())
             if len(self.mines-mines_copy)==0 and len(self.safes-safes_copy)==0:
                 break
-					
+
 
     def add_knowledge(self, cell, count):
         """
@@ -248,7 +248,7 @@ class MinesweeperAI():
             for c in neighbors:
                 self.mark_mine(c)
                 
-        looks_for_inferences()
+        # self.looks_for_inferences()
 
 
 

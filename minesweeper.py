@@ -197,9 +197,9 @@ class MinesweeperAI():
             return self.neighbors_dict[cell]
         except: #if first time cell is being consulted
             neighbors=set()
-            for i in range (cell[0]-1, cell[0]+2, 2):
-                for j in range (cell[1]-1, cell[1]+2, 2):
-                    if 0<=i<self.height and 0<=j<self.width:
+            for i in range (cell[0]-1, cell[0]+2):
+                for j in range (cell[1]-1, cell[1]+2):
+                    if 0<=i<self.height and 0<=j<self.width and (i,j)!=cell:
                         neighbors.add((i,j))
             self.neighbors_dict[cell]=neighbors
         return neighbors
@@ -213,9 +213,11 @@ class MinesweeperAI():
             mines_copy=self.mines.copy()
             safes_copy=self.safes.copy()
      
-            for sentence in self.knowledge:       
-                self.mines.add(sentence.known_mines())
-                self.safes.add(sentence.known_safes())
+            for sentence in self.knowledge:
+                for mine in sentence.known_mines():
+                    self.mines.add(mine)
+                for safe in sentence.known_safes():
+                    self.safes.add(safe)
             if len(self.mines-mines_copy)==0 and len(self.safes-safes_copy)==0:
                 break
 
@@ -247,8 +249,7 @@ class MinesweeperAI():
         elif count==len(neighbors):
             for c in neighbors:
                 self.mark_mine(c)
-                
-        # self.looks_for_inferences()
+        self.looks_for_inferences()
 
 
 

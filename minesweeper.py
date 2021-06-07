@@ -205,7 +205,25 @@ class MinesweeperAI():
         return neighbors
 
 
-    def looks_for_inferences(self):
+    def looks_for_inferences(self, neighbors, count):
+        """ version 2 of this method"""
+
+        for sentence in self.knowledge:
+            #if new neighbors are a subset of sentence - subtract and adjust count
+            if neighbors.issubset(sentence.cells):
+                sentence.cells-=neighbors
+                sentence.count-=count
+                #  add new mines or safes to list
+                for mine in sentence.known_mines():
+                    self.mines.add(mine)
+                for safe in sentence.known_safes():
+                    self.safes.add(safe)
+
+
+
+
+        """
+        version 1 of this method
         #makes a copy of mines and safes
         #runs the loop of all sentences adding known mines and safes to see if new conclusions arrive
         #stops loop when no more new safes or mines are found
@@ -220,7 +238,7 @@ class MinesweeperAI():
                     self.safes.add(safe)
             if len(self.mines-mines_copy)==0 and len(self.safes-safes_copy)==0:
                 break
-
+            """
 
     def add_knowledge(self, cell, count):
         """
@@ -240,6 +258,13 @@ class MinesweeperAI():
         self.moves_made.add(cell)
         self.safes.add(cell)
         neighbors=self.neighboring_cells(cell)
+        #remove mines from neighbors and adjust count
+        neighbor_count=len(neighbors)
+        neighbors-=self.mines
+        count-=(neighbor_count-len(neighbors))
+        #remove safes from neighbors
+        neighbors-=self.safes
+        # instance new sentence and add it to knowledge base
         self.knowledge.append(Sentence(neighbors, count))
         #if count=0 then all neighbours are safe - mark them
         if count==0:
@@ -249,7 +274,7 @@ class MinesweeperAI():
         elif count==len(neighbors):
             for c in neighbors:
                 self.mark_mine(c)
-        self.looks_for_inferences()
+        self.looks_for_inferences(neighbors, count)
 
 
 

@@ -123,9 +123,7 @@ class Sentence():
             self.cells-={cell}
             self.count-=1
             self.changed=True
-        else:
-            print(f'Cannot mark this mine {cell} because is not in the sentence {self.cells} or count {self.count} is not >0')
-            raise ValueError
+
 
     def mark_safe(self, cell):
         """
@@ -135,9 +133,7 @@ class Sentence():
         if cell in self.cells:
             self.cells-={cell}
             self.changed=True
-        else:
-            print(f'Cannot mark this safe {cell} because is not in the sentence {self.cells} ')
-            raise ValueError
+
 
 class MinesweeperAI():
     """

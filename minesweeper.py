@@ -1,3 +1,5 @@
+#FINAL VERSION - DEBUGGED - WORKING
+
 import itertools
 import random
 
@@ -299,22 +301,4 @@ class MinesweeperAI():
             return None
         return random_move
 
-
-
-if __name__=="__main__":
-    game=Minesweeper()
-    sentence1=Sentence({(1,1), (2,2), (3,3), (4,4)},3)
-    sentence2 = Sentence({(1, 1), (2,2)}, 1)
-    sentence3 = Sentence({(3, 3), (4, 4)}, 2)
-    sentence4=Sentence({(2,1), (3,2), (4,3), (5,4)},0)
-    knowledge=[sentence1, sentence2, sentence3, sentence4]
-    for s in knowledge:
-        print(f'known mines {s.known_mines()}')
-        print(f'known safes {s.known_safes()}')
-        for m in s.known_mines():
-            s.mark_mine(m)
-        for sf in s.known_safes():
-            s.mark_safe(sf)
-        print(f'known mines {s.known_mines()}')
-        print(f'known safes {s.known_safes()}')
 

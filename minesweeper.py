@@ -94,6 +94,7 @@ class Sentence():
     def __init__(self, cells, count):
         self.cells = set(cells)
         self.count = count
+        self.changed=True
 
     def __eq__(self, other):
         return self.cells == other.cells and self.count == other.count
@@ -121,6 +122,7 @@ class Sentence():
         if cell in self.cells and self.count>0:
             self.cells-={cell}
             self.count-=1
+            self.changed=True
         else:
             print(f'Cannot mark this mine {cell} because is not in the sentence {self.cells} or count {self.count} is not >0')
             raise ValueError
@@ -132,6 +134,7 @@ class Sentence():
         """
         if cell in self.cells:
             self.cells-={cell}
+            self.changed=True
         else:
             print(f'Cannot mark this safe {cell} because is not in the sentence {self.cells} ')
             raise ValueError
@@ -161,7 +164,7 @@ class MinesweeperAI():
         self.available_moves=set()
         for i in range (height):
             for j in range (width):
-                self.available_moves.add(i,j)
+                self.available_moves.add((i,j))
 
     def mark_mine(self, cell):
         """
@@ -188,7 +191,7 @@ class MinesweeperAI():
         neighbors=set()
         for i in range(cell[0]-1, cell[0]+2):
             for j in range(cell[1]-1, cell[1]+2):
-                if 0<=i<self.height and 0<=j<self.width and i,j!=(cell):
+                if 0<=i<self.height and 0<=j<self.width and (i,j)!=(cell):
                     neighbors.add((i,j))
         return neighbors
 
@@ -199,10 +202,10 @@ class MinesweeperAI():
         """
         if mine_or_safe=='mine':
             for cell in cells:
-                self.mines.add(cell)
+                self.mark_mine(cell)
         elif mine_or_safe=='safe':
             for cell in cells:
-                self.safes.add(cell)
+                self.mark_safe(cell)
         else:
             raise ValueError
 
@@ -220,11 +223,24 @@ class MinesweeperAI():
             elif len(new_safes)>0:
                 self.add_to_set(new_safes, 'safe')
             else:
-                continue #skips next lines and goes to next sentence todo check
-            self.knowledge.remove(sentence)
+                continue #skips next lines and goes to next sentence
+            self.knowledge.remove(sentence) # only runs when if or elif is true
 
-    def aplica_aplica_subsets(self): #todo
-        raise NotImplementedError
+    def subtract_subset(self):
+        while True:
+            subset_change=False
+            for sub_sentence in self.knowledge:
+                if sub_sentence.changed:
+                    sub_sentence.changed=False
+                    for sentence in self.knowledge:
+                        if sub_sentence.cells.issubset(sentence.cells) and len(sub_sentence.cells)<len(sentence.cells):
+                            sentence.cells-=sub_sentence.cells
+                            sentence.count-=sub_sentence.count
+                            sentence.changed=True
+                            subset_change=True
+            if not subset_change:
+                break
+        self.find_conclusion_sentences()
 
     def add_knowledge(self, cell, count):
         """
@@ -243,6 +259,20 @@ class MinesweeperAI():
         """
         self.moves_made.add(cell)
         self.mark_safe(cell)
+
+        #finds neighbors and removes safes
+        neighbors=self.neighboring_cells(cell)
+        neighbors-=self.safes
+
+        # stores len of neighbors to see how many mines took out
+        old_neighbors_len=len(neighbors)
+        #remove known mines
+        neighbors-=self.mines
+        #adjusts count by removing number of mines taken out
+        count-=(old_neighbors_len-len(neighbors))
+        #instances a new sentence and appends to knowledge base
+        self.knowledge.append(Sentence(neighbors,count))
+        self.subtract_subset()
 
 
     def make_safe_move(self):

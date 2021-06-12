@@ -96,6 +96,7 @@ class Sentence():
     def __init__(self, cells, count):
         self.cells = set(cells)
         self.count = count
+        # sets a flag that this is a new/changed Sentence to try and subtract from others if subset
         self.changed=True
 
     def __eq__(self, other):
@@ -124,6 +125,7 @@ class Sentence():
         if cell in self.cells and self.count>0:
             self.cells-={cell}
             self.count-=1
+            #flags this sentence as having been changed - to try again to subtract if subset of others
             self.changed=True
 
 
@@ -193,20 +195,6 @@ class MinesweeperAI():
                     neighbors.add((i,j))
         return neighbors
 
-    def add_to_set(self, cells, mine_or_safe):
-        """
-        :param cells: takes in cells to add to set
-        :param mine_or_safe: receives str 'mine' or 'safe'
-        """
-        if mine_or_safe=='mine':
-            for cell in cells:
-                self.mark_mine(cell)
-        elif mine_or_safe=='safe':
-            for cell in cells:
-                self.mark_safe(cell)
-        else:
-            raise ValueError
-
 
     def find_conclusion_sentences(self):
         """
@@ -217,27 +205,42 @@ class MinesweeperAI():
             new_mines=sentence.known_mines()
             new_safes=sentence.known_safes()
             if len(new_mines)>0:
-                self.add_to_set(new_mines, 'mine')
+                for mine in new_mines:
+                    self.mark_mine(mine)
             elif len(new_safes)>0:
-                self.add_to_set(new_safes, 'safe')
+                for safe in new_safes:
+                    self.mark_safe(safe)
             else:
                 continue #skips next lines and goes to next sentence
-            self.knowledge.remove(sentence) # only runs when if or elif is true
+            # if known_mines or safes is successful, all cells are marked mine or safe
+            # then "concluded" sentence can be removed from knowledge base
+            self.knowledge.remove(sentence) # only runs when if or elif is true because of "continue"
 
     def subtract_subset(self):
+        """
+        every time a new knowledge is added by add_knowledge, this method is run
+        it will run in a loop util there are no more changed sentences
+        sentences can be changed by it's own creation, or when new mines or safes are found
+        everytime a sentence is changed, this method tries to subtract it from the other
+        sentences if it is a subset of them.
+        """
         while True:
+            #resets flag for entire METHOD.
             subset_change=False
             for sub_sentence in self.knowledge:
+                # runs for each SENTENCE flagged
                 if sub_sentence.changed:
-                    sub_sentence.changed=False
+                    sub_sentence.changed=False #clears flag of the sub_sentence being subtracted
                     for sentence in self.knowledge:
+                        # checks if sentence is a subset of all the others and if it is not itself (equal len)
                         if sub_sentence.cells.issubset(sentence.cells) and len(sub_sentence.cells)<len(sentence.cells):
                             sentence.cells-=sub_sentence.cells
                             sentence.count-=sub_sentence.count
-                            sentence.changed=True
-                            subset_change=True
+                            sentence.changed=True #flags sentences being changed by the subtraction
+                            subset_change=True #if there was any change - flags the METHOD to run one more time.
             if not subset_change:
                 break
+        # after all changes possible with the subsets, checks if there are new conclusions
         self.find_conclusion_sentences()
 
     def add_knowledge(self, cell, count):
@@ -270,6 +273,8 @@ class MinesweeperAI():
         count-=(old_neighbors_len-len(neighbors))
         #instances a new sentence and appends to knowledge base
         self.knowledge.append(Sentence(neighbors,count))
+        #given that there is a new "changed" sentence, runs subtract subset method
+        # to try and subtract this new sentence from all others of which it is subset.
         self.subtract_subset()
 
 
@@ -294,11 +299,10 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
+        #used this set of available moves not to run the loop everytime.
         self.available_moves=self.available_moves-self.moves_made-self.mines
         try:
             random_move=self.available_moves.pop()
         except:
             return None
         return random_move
-
-

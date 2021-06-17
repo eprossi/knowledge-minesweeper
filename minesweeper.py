@@ -1,5 +1,3 @@
-#FINAL VERSION - DEBUGGED - WORKING
-
 import itertools
 import random
 
@@ -96,8 +94,8 @@ class Sentence():
     def __init__(self, cells, count):
         self.cells = set(cells)
         self.count = count
-        # sets a flag that this is a new/changed Sentence to try and subtract from others if subset
-        self.changed=True
+        self.safes = set()
+        self.mines = set()
 
     def __eq__(self, other):
         return self.cells == other.cells and self.count == other.count
@@ -105,38 +103,47 @@ class Sentence():
     def __str__(self):
         return f"{self.cells} = {self.count}"
 
+    def __len__(self):
+        return len(self.cells)
+
+    def copy(self):
+        ret = Sentence(self.cells.copy(), self.count)
+        ret.safes = self.safes.copy()
+        ret.mines = self.mines.copy()
+        return ret
+
     def known_mines(self):
         """
         Returns the set of all cells in self.cells known to be mines.
         """
-        return {cell for cell in self.cells if len(self.cells)==self.count}
+        return self.mines
 
     def known_safes(self):
         """
         Returns the set of all cells in self.cells known to be safe.
         """
-        return {cell for cell in self.cells if self.count==0}
+        return self.safes
 
     def mark_mine(self, cell):
         """
         Updates internal knowledge representation given the fact that
         a cell is known to be a mine.
         """
-        if cell in self.cells and self.count>0:
-            self.cells-={cell}
-            self.count-=1
-            #flags this sentence as having been changed - to try again to subtract if subset of others
-            self.changed=True
-
+        if cell not in self.cells:
+            return
+        self.count -= 1
+        self.cells.remove(cell)
+        self.mines.add(cell)
 
     def mark_safe(self, cell):
         """
         Updates internal knowledge representation given the fact that
         a cell is known to be safe.
         """
-        if cell in self.cells:
-            self.cells-={cell}
-            self.changed=True
+        if cell not in self.cells:
+            return
+        self.cells.remove(cell)
+        self.safes.add(cell)
 
 
 class MinesweeperAI():
@@ -160,12 +167,6 @@ class MinesweeperAI():
         # List of sentences about the game known to be true
         self.knowledge = []
 
-        # creates available moves set
-        self.available_moves=set()
-        for i in range (height):
-            for j in range (width):
-                self.available_moves.add((i,j))
-
     def mark_mine(self, cell):
         """
         Marks a cell as a mine, and updates all knowledge
@@ -184,66 +185,39 @@ class MinesweeperAI():
         for sentence in self.knowledge:
             sentence.mark_safe(cell)
 
-    def neighboring_cells(self, cell):
-        """
-        receives a cell and returns all neighboring cells
-        """
-        neighbors=set()
-        for i in range(cell[0]-1, cell[0]+2):
-            for j in range(cell[1]-1, cell[1]+2):
-                if 0<=i<self.height and 0<=j<self.width and (i,j)!=(cell):
-                    neighbors.add((i,j))
-        return neighbors
-
-
-    def find_conclusion_sentences(self):
-        """
-        find sentences that can draw conclusions, adds mines or safes to list
-        and removes sentence from knowledge base
-        """
-        for sentence in self.knowledge:
-            new_mines=sentence.known_mines()
-            new_safes=sentence.known_safes()
-            if len(new_mines)>0:
-                for mine in new_mines:
-                    self.mark_mine(mine)
-            elif len(new_safes)>0:
-                for safe in new_safes:
-                    self.mark_safe(safe)
-            else:
-                continue #skips next lines and goes to next sentence
-            # if known_mines or safes is successful, all cells are marked mine or safe
-            # then "concluded" sentence can be removed from knowledge base
-            self.knowledge.remove(sentence) # only runs when if or elif is true because of "continue"
-
-    def subtract_subset(self):
-        """
-        every time a new knowledge is added by add_knowledge, this method is run
-        it will run in a loop util there are no more changed sentences
-        sentences can be changed by it's own creation, or when new mines or safes are found
-        everytime a sentence is changed, this method tries to subtract it from the other
-        sentences if it is a subset of them.
-        """
-        while True:
-            #resets flag for entire METHOD.
-            subset_change=False
-            for sub_sentence in self.knowledge:
-                # runs for each SENTENCE flagged
-                if sub_sentence.changed:
-                    sub_sentence.changed=False #clears flag of the sub_sentence being subtracted
-                    for sentence in self.knowledge:
-                        # checks if sentence is a subset of all the others and if it is not itself (equal len)
-                        if sub_sentence.cells.issubset(sentence.cells) and len(sub_sentence.cells)<len(sentence.cells):
-                            sentence.cells-=sub_sentence.cells
-                            sentence.count-=sub_sentence.count
-                            sentence.changed=True #flags sentences being changed by the subtraction
-                            subset_change=True #if there was any change - flags the METHOD to run one more time.
-            if not subset_change:
-                break
-        # after all changes possible with the subsets, checks if there are new conclusions
-        self.find_conclusion_sentences()
+    def clean_obvious(self):
+        changed = False
+        self.knowledge = [i for i in self.knowledge if len(i) > 0]  # remove sentences that do not have cells anymore
+        for k in self.knowledge:
+            old_k = k.copy()
+            if old_k.count == len(old_k):  # All cells are mines
+                changed = True
+                for c in old_k.cells:
+                    self.mark_mine(c)
+            elif old_k.count == 0:  # None of the cells are mines
+                changed = True
+                for c in old_k.cells:
+                    self.mark_safe(c)
+        self.knowledge = [i for i in self.knowledge if len(i) > 0]  # remove sentences that do not have cells anymore
+        return changed
 
     def add_knowledge(self, cell, count):
+        def neighbors(cell):
+            n = set([(cell[0] - 1, cell[1] - 1), (cell[0] - 1, cell[1]), (cell[0] - 1, cell[1] + 1),
+                     (cell[0], cell[1] - 1), (cell[0], cell[1] + 1),
+                     (cell[0] + 1, cell[1] - 1), (cell[0] + 1, cell[1]), (cell[0] + 1, cell[1] + 1)])
+
+            z = [i for i in n if i[0] >= 0 and i[0] < self.height and i[1] >= 0 and i[1] < self.width]
+            return set(z)
+
+        def interesting_neighbors(neighbors, count):
+            n = neighbors - self.safes
+            for x in neighbors:
+                if x in self.mines:
+                    n.remove(x)
+                    count -= 1
+            return n, count
+
         """
         Called when the Minesweeper board tells us, for a given
         safe cell, how many neighboring cells have mines in them.
@@ -260,23 +234,21 @@ class MinesweeperAI():
         """
         self.moves_made.add(cell)
         self.mark_safe(cell)
+        n, new_count = interesting_neighbors(neighbors(cell), count)
+        self.knowledge.append(Sentence(n, new_count))
 
-        #finds neighbors and removes safes
-        neighbors=self.neighboring_cells(cell)
-        neighbors-=self.safes
-
-        # stores len of neighbors to see how many mines took out
-        old_neighbors_len=len(neighbors)
-        #remove known mines
-        neighbors-=self.mines
-        #adjusts count by removing number of mines taken out
-        count-=(old_neighbors_len-len(neighbors))
-        #instances a new sentence and appends to knowledge base
-        self.knowledge.append(Sentence(neighbors,count))
-        #given that there is a new "changed" sentence, runs subtract subset method
-        # to try and subtract this new sentence from all others of which it is subset.
-        self.subtract_subset()
-
+        changed = True
+        while changed is True:
+            changed = self.clean_obvious()
+            previous_knowledge = self.knowledge.copy()
+            for k in previous_knowledge:
+                old_k = k.copy()
+                for k2 in previous_knowledge:
+                    if k2.cells.issubset(old_k.cells) and len(k2) > 0 and k2 != old_k:
+                        new_sentence = Sentence(old_k.cells - k2.cells, old_k.count - k2.count)
+                        if new_sentence not in self.knowledge:
+                            self.knowledge.append(new_sentence)
+                            changed = True
 
     def make_safe_move(self):
         """
@@ -287,10 +259,11 @@ class MinesweeperAI():
         This function may use the knowledge in self.mines, self.safes
         and self.moves_made, but should not modify any of those values.
         """
-        for c in self.safes:
-            if c not in self.moves_made:
-                return c
-
+        moves = [k for k in self.safes if k not in self.moves_made]
+        if len(moves) > 0:
+            return moves[0]
+        else:
+            return None
 
     def make_random_move(self):
         """
@@ -299,10 +272,12 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        #used this set of available moves not to run the loop everytime.
-        self.available_moves=self.available_moves-self.moves_made-self.mines
-        try:
-            random_move=self.available_moves.pop()
-        except:
+        rows = random.sample(range(0, self.height - 1), self.height - 1)
+        cols = random.sample(range(0, self.width - 1), self.width - 1)
+        moves = [(r, c) for r in rows for c in cols]
+        possible_moves = set(moves) - self.mines
+        possible_moves = possible_moves - self.moves_made
+        if len(possible_moves) > 0:
+            return list(possible_moves)[0]
+        else:
             return None
-        return random_move
